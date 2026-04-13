@@ -1,0 +1,3 @@
+infoForClaude.md
+/data/*
+!/data/load_dataset.py

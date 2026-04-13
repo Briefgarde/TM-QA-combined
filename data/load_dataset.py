@@ -1,0 +1,2 @@
+# TODO : Loads and preprocesses HF QA datasets, returns a DatasetDict. Example of dataset : SQuAD, BioASQ
+# Depending on the dataset, some may be already found locally, while other might need to be loaded from HF
