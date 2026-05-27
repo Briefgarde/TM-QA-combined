@@ -1,3 +1,6 @@
 infoForClaude.md
 /data/*
-!/data/load_dataset.py
+!/data/BioASQ-training14b/
+!/data/BioASQ-training14b/**
+.env
+*.json
