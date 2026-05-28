@@ -1,8 +1,10 @@
 import torch
 from sklearn.metrics import ndcg_score
 import numpy as np
+import time
 
 
+# alt rerank with time and token perf
 def rerank(
     query: str,
     candidates: list[dict],
@@ -10,7 +12,7 @@ def rerank(
     tokenizer,
     batch_size: int = 16,
     device: str = None
-) -> list[dict]:
+) -> tuple[list[dict], dict]:
     """
     Scores and sorts candidates by relevance to the query using the cross-encoder.
 
@@ -23,16 +25,20 @@ def rerank(
         device     : Target device. If None, inferred from model parameters.
 
     Returns:
-        Candidates sorted by predicted relevance score descending,
-        each dict extended with a 'predicted_score' key.
+        ranked   : Candidates sorted by predicted relevance score descending,
+                   each dict extended with a 'predicted_score' key.
+        metadata : Dict with reranker_time_ms and reranker_input_tokens.
     """
     if device is None:
         device = next(model.parameters()).device
 
     sentences = [c['sentence'] for c in candidates]
     all_scores = []
+    total_tokens = 0
 
     model.eval()
+    start = time.perf_counter()
+
     with torch.no_grad():
         for i in range(0, len(sentences), batch_size):
             batch_sentences = sentences[i:i + batch_size]
@@ -43,8 +49,11 @@ def rerank(
                 max_length=512,
                 return_tensors='pt'
             ).to(device)
+            total_tokens += encoded['input_ids'].numel()
             logits = model(**encoded).logits.squeeze(-1)
             all_scores.extend(logits.cpu().tolist())
+
+    elapsed_ms = (time.perf_counter() - start) * 1000
 
     ranked = [
         {**c, 'predicted_score': score}
@@ -52,7 +61,12 @@ def rerank(
     ]
     ranked.sort(key=lambda x: x['predicted_score'], reverse=True)
 
-    return ranked
+    metadata = {
+        "reranker_time_ms": elapsed_ms,
+        "reranker_input_tokens": total_tokens
+    }
+
+    return ranked, metadata
 
 
 def evaluate_reranker(
@@ -129,6 +143,7 @@ def evaluate_reranker(
 
 def evaluate_reranker_dataset(
     all_ranked_candidates: list[list[dict]],
+    all_metadata: list[dict],
     threshold: float = 0.5,
     k_values: list[int] = [5, 10, 20]
 ) -> dict:
@@ -137,12 +152,14 @@ def evaluate_reranker_dataset(
 
     Args:
         all_ranked_candidates : List of rerank() outputs, one per query.
+        all_metadata          : List of metadata, one per query.
         threshold             : Cutoff for binarizing relevance_score.
         k_values              : List of cutoff values for @k metrics.
 
     Returns:
         Dict of metric names to macro-averaged float values across queries.
     """
+
     all_results = [
         evaluate_reranker(ranked, threshold, k_values)
         for ranked in all_ranked_candidates
@@ -151,5 +168,8 @@ def evaluate_reranker_dataset(
     averaged = {}
     for metric in all_results[0].keys():
         averaged[metric] = float(np.mean([r[metric] for r in all_results]))
+
+    averaged['avg_reranker_time_ms'] = float(np.mean([m['reranker_time_ms'] for m in all_metadata]))
+    averaged['avg_reranker_input_tokens'] = float(np.mean([m['reranker_input_tokens'] for m in all_metadata]))
 
     return averaged

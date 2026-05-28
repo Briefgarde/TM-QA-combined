@@ -157,7 +157,6 @@ def build_candidate_pool_bioASQ(
     Args:
         entry     : A single dataset entry with keys 'id', 'query', 'pubmed_ids', 'snippets'.
         abstracts : Dict mapping PubMed ID (str) to list of sentence strings.
-        threshold : Minimum fraction of snippet covered by LCS to assign label 1.
 
     Returns:
         A dict with:
