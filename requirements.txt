@@ -1,0 +1,24 @@
+# PyTorch — install from the cu124 index for CUDA 12.4 support (sm_61 / Pascal via PTX fallback)
+# pip install torch==2.6.0+cu124 torchvision==0.21.0+cu124 torchaudio==2.6.0+cu124 --index-url https://download.pytorch.org/whl/cu124
+torch==2.6.0+cu124
+torchvision==0.21.0+cu124
+torchaudio==2.6.0+cu124
+triton==3.2.0
+
+# HuggingFace
+transformers==5.9.0
+tokenizers==0.22.2
+safetensors==0.7.0
+huggingface_hub==1.17.0
+hf-xet==1.5.0
+datasets==4.8.5
+
+# Scientific computing
+numpy==2.4.6
+scipy==1.17.1
+scikit-learn==1.8.0
+pandas==3.0.3
+
+# Utilities
+tqdm==4.67.3
+python-dotenv==1.2.2
