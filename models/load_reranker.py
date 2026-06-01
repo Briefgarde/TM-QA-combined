@@ -26,7 +26,7 @@ def load_reranker(model_path_or_name: str = "ncbi/MedCPT-Cross-Encoder", device:
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    tokenizer = AutoTokenizer.from_pretrained(model_path_or_name,token=HF_TOKEN)
+    tokenizer = AutoTokenizer.from_pretrained(model_path_or_name, token=HF_TOKEN)
     model = AutoModelForSequenceClassification.from_pretrained(model_path_or_name, token=HF_TOKEN)
     model.to(device)
     model.eval()

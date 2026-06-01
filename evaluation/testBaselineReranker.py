@@ -8,6 +8,7 @@ from saveResult import save_results
 from inference.rerank import rerank, evaluate_reranker_dataset
 import json
 from tqdm import tqdm
+import os
 
 # those might need to come from a .sh script later. 
 modelName = "ncbi/MedCPT-Cross-Encoder"
@@ -31,21 +32,49 @@ train_dataset, val_dataset, test_dataset, abstracts = load_bioASQ(
     val_ratio=val_ratio
 )
 
-# prepare candidate 
-# train_pool = [build_candidate_pool_bioASQ(entry, abstracts) for entry in tqdm(train_dataset, desc="Building train pool")]
-# test_pool = [build_candidate_pool_bioASQ(entry, abstracts) for entry in tqdm(test_dataset, desc="Building test pool")]
+train_pool_path = "train_pool.json"
+test_pool_path = "test_pool.json"
+val_pool_path = "val_pool.json"
 
-# if things were already run before, this can be used more quickly. 
-# with open("train_pool.json", "r", encoding="utf-8") as train_p_json:
-#     train_pool = json.load(train_p_json)
-with open("test_pool.json", "r", encoding="utf-8") as test_p_json:
-    test_pool = json.load(test_p_json)
+# Check if the test pool file already exists
+# this quickly takes a lot of time to run, so I dump it for ease of use since I tend to work pretty iteratively. 
+if os.path.exists(test_pool_path):
+    print("Pre-computed pools found. Loading from JSON files...")
+    
+    with open(train_pool_path, "r", encoding="utf-8") as train_p_json:
+        train_pool = json.load(train_p_json)
+        
+    with open(test_pool_path, "r", encoding="utf-8") as test_p_json:
+        test_pool = json.load(test_p_json)
+        
+    with open(val_pool_path, "r", encoding="utf-8") as val_p_json:
+        val_pool = json.load(val_p_json)
 
-queries = [test_pool[i]['query'] for i in range(10)]
-candidates_list = [test_pool[i]['candidates'] for i in range(10)]
+else:
+    print("Pre-computed pools not found. Building pools...")
+    
+    # Build the pools
+    train_pool = [build_candidate_pool_bioASQ(entry, abstracts) for entry in tqdm(train_dataset, desc="Building train pool")]
+    test_pool = [build_candidate_pool_bioASQ(entry, abstracts) for entry in tqdm(test_dataset, desc="Building test pool")]
+    val_pool = [build_candidate_pool_bioASQ(entry, abstracts) for entry in tqdm(val_dataset, desc="Building val pool")]
+    
+    print("Saving built pools to JSON files...")
+    
+    # Dump the pools for later use
+    with open(train_pool_path, "w", encoding="utf-8") as train_p_json:
+        json.dump(train_pool, train_p_json, ensure_ascii=False, indent=4)
+        
+    with open(test_pool_path, "w", encoding="utf-8") as test_p_json:
+        json.dump(test_pool, test_p_json, ensure_ascii=False, indent=4)
+        
+    with open(val_pool_path, "w", encoding="utf-8") as val_p_json:
+        json.dump(val_pool, val_p_json, ensure_ascii=False, indent=4)
 
-# queries = [test_pool[i]['query'] for i in range(len(test_pool))]
-# candidates_list = [test_pool[i]['candidates'] for i in range(len(test_pool))]
+# queries = [test_pool[i]['query'] for i in range(10)]
+# candidates_list = [test_pool[i]['candidates'] for i in range(10)]
+
+queries = [test_pool[i]['query'] for i in range(len(test_pool))]
+candidates_list = [test_pool[i]['candidates'] for i in range(len(test_pool))]
 
 scoreTest = []
 metadataTest = []

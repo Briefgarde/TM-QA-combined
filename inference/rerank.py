@@ -147,29 +147,65 @@ def evaluate_reranker_dataset(
     threshold: float = 0.5,
     k_values: list[int] = [5, 10, 20]
 ) -> dict:
-    """
-    Evaluates the reranker over the full dataset by averaging per-query metrics.
 
-    Args:
-        all_ranked_candidates : List of rerank() outputs, one per query.
-        all_metadata          : List of metadata, one per query.
-        threshold             : Cutoff for binarizing relevance_score.
-        k_values              : List of cutoff values for @k metrics.
+    valid = [
+        (ranked, meta)
+        for ranked, meta in zip(all_ranked_candidates, all_metadata)
+        if len(ranked) >= 2
+    ]
 
-    Returns:
-        Dict of metric names to macro-averaged float values across queries.
-    """
+    n_dropped = len(all_ranked_candidates) - len(valid)
+    if n_dropped > 0:
+        print(f"Dropped {n_dropped} queries with fewer than 2 candidates.")
+
+    valid_ranked, valid_meta = zip(*valid)
 
     all_results = [
         evaluate_reranker(ranked, threshold, k_values)
-        for ranked in all_ranked_candidates
+        for ranked in valid_ranked
     ]
 
     averaged = {}
     for metric in all_results[0].keys():
         averaged[metric] = float(np.mean([r[metric] for r in all_results]))
 
-    averaged['avg_reranker_time_ms'] = float(np.mean([m['reranker_time_ms'] for m in all_metadata]))
-    averaged['avg_reranker_input_tokens'] = float(np.mean([m['reranker_input_tokens'] for m in all_metadata]))
+    averaged['avg_reranker_time_ms'] = float(np.mean([m['reranker_time_ms'] for m in valid_meta]))
+    averaged['avg_reranker_input_tokens'] = float(np.mean([m['reranker_input_tokens'] for m in valid_meta]))
+    averaged['n_queries_evaluated'] = len(valid)
+    averaged['n_queries_dropped'] = n_dropped
 
     return averaged
+
+
+# def evaluate_reranker_dataset(
+#     all_ranked_candidates: list[list[dict]],
+#     all_metadata: list[dict],
+#     threshold: float = 0.5,
+#     k_values: list[int] = [5, 10, 20]
+# ) -> dict:
+#     """
+#     Evaluates the reranker over the full dataset by averaging per-query metrics.
+
+#     Args:
+#         all_ranked_candidates : List of rerank() outputs, one per query.
+#         all_metadata          : List of metadata, one per query.
+#         threshold             : Cutoff for binarizing relevance_score.
+#         k_values              : List of cutoff values for @k metrics.
+
+#     Returns:
+#         Dict of metric names to macro-averaged float values across queries.
+#     """
+
+#     all_results = [
+#         evaluate_reranker(ranked, threshold, k_values)
+#         for ranked in all_ranked_candidates
+#     ]
+
+#     averaged = {}
+#     for metric in all_results[0].keys():
+#         averaged[metric] = float(np.mean([r[metric] for r in all_results]))
+
+#     averaged['avg_reranker_time_ms'] = float(np.mean([m['reranker_time_ms'] for m in all_metadata]))
+#     averaged['avg_reranker_input_tokens'] = float(np.mean([m['reranker_input_tokens'] for m in all_metadata]))
+
+#     return averaged
