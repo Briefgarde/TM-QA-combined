@@ -69,6 +69,7 @@ def load_bioASQ(
         entries.append({
             "id": q["id"],
             "query": q["body"],
+            "answer": q["ideal_answer"][0] if q["ideal_answer"] else "",
             "pubmed_ids": available_ids,
             "snippets": snippets
         })
@@ -187,5 +188,6 @@ def build_candidate_pool_bioASQ(
     return {
         'id': entry['id'],
         'query': entry['query'],
+        "answer": entry["answer"],
         'candidates': candidates
     }
