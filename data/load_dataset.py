@@ -189,5 +189,6 @@ def build_candidate_pool_bioASQ(
         'id': entry['id'],
         'query': entry['query'],
         "answer": entry["answer"],
+        "pubmed_ids":entry["pubmed_ids"],
         'candidates': candidates
     }
