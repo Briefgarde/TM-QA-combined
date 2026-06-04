@@ -6,6 +6,7 @@ from data.load_dataset import load_bioASQ, build_candidate_pool_bioASQ
 from models.load_reranker import load_reranker, load_genLM
 from saveResult import save_results
 from inference.rerank import rerank, evaluate_reranker_dataset
+from inference.generate import generate_dataset
 from inference.assemble_context import assemble_context_dataset
 import json
 from tqdm import tqdm
@@ -39,8 +40,6 @@ train_dataset, val_dataset, test_dataset, abstracts = load_bioASQ(
     test_ratio=test_ratio,
     val_ratio=val_ratio
 )
-
-test_dataset[0]
 
 train_pool_path = "train_pool.json"
 test_pool_path = "test_pool.json"
@@ -81,6 +80,9 @@ else:
     with open(val_pool_path, "w", encoding="utf-8") as val_p_json:
         json.dump(val_pool, val_p_json, ensure_ascii=False, indent=4)
 
+
+
+
 queries = [test_pool[i]['query'] for i in range(10)]
 candidates_list = [test_pool[i]['candidates'] for i in range(10)]
 
@@ -103,9 +105,15 @@ metrics = evaluate_reranker_dataset(scoreTest, metadataTest, threshold=threshold
 # Generative part
 
 modelGenName = "stanford-crfm/BioMedLM"
-modeContextAssembling = "reranked"
+modeContextAssembling = "reranked" # can be reranked, to use the top-k sentence from the abstract,
+# or full, which uses all of the abstracts as context. 
 top_k = 5
-prompt_template = "Context: {context}\nQuestion: {query}\nAnswer:"
+maxContextToken = 768
+# BioMedLM can take up to 1024 token, which include generation. 
+# By setting here a maxContextToken, we leave some headroom for the generation to not get blown out. 
+prompt_template = "Context: {context}\nQuestion: {query}\nAnswer:" # TODO or to test at least
+repetition_penalty=1.2 # this penalize the LM for getting stuck in a loop of the exact same sentence. 
+# This is likely to happen in greedy decoding setup, since there's no variability. 
 
 modelGen, tokenGen = load_genLM(model_path_or_name=modelGenName)
 
@@ -115,6 +123,15 @@ contexts = assemble_context_dataset(pool=test_pool[:10],
                                     tokenizer=tokenGen,
                                     mode=modeContextAssembling,
                                     top_k=top_k,
+                                    max_context_tokens=maxContextToken,
                                     prompt_template=prompt_template)
 
-pp(contexts[0])
+generated_sets = generate_dataset(
+                                    contexts=contexts,
+                                    model=modelGen,
+                                    tokenizer=tokenGen,
+                                    max_new_tokens=1024-maxContextToken,
+                                    repetition_penalty=repetition_penalty
+                                )
+
+pp(generated_sets[0])
