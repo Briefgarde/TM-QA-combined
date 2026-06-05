@@ -2,41 +2,10 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-# def save_results(ranked_output, metrics, model_path_or_name, threshold, k_values, output_dir="."):
-#     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-#     model_slug = model_path_or_name.replace("/", "_")
-    
-#     metadata = {
-#         "model": model_path_or_name,
-#         "threshold": threshold,
-#         "k_values": k_values,
-#         "timestamp": timestamp,
-#         "n_queries": len(ranked_output)
-#     }
 
-#     results_payload = {
-#         "metadata": metadata,
-#         "metrics": metrics
-#     }
-
-#     metrics_path = Path(output_dir) / f"{model_slug}_{timestamp}_metrics.json"
-#     ranked_path = Path(output_dir) / f"{model_slug}_{timestamp}_ranked.json"
-
-#     metrics_path.parent.mkdir(parents=True, exist_ok=True)
-
-#     with open(metrics_path, "w", encoding="utf-8") as f:
-#         json.dump(results_payload, f, indent=2)
-#     with open(ranked_path, "w", encoding="utf-8") as f:
-#         json.dump(ranked_output, f, indent=2)
-
-#     print(f"Metrics saved to {metrics_path}")
-#     print(f"Ranked output saved to {ranked_path}")
-
-
-
-
-# alt save_results with fusing int a single file.
-def save_results(
+# alt save_results_reranker
+# with fusing int a single file.
+def save_results_reranker(
     scored: list[list[dict]],
     metadata: list[dict],
     metrics: dict,
@@ -90,3 +59,52 @@ def save_results(
         json.dump(results_payload, f, indent=2)
 
     print(f"Results saved to {output_path}")
+
+
+def save_result_generation(
+    per_query_results: list[dict],
+    averaged: dict,
+    metadata: dict,
+    model_path_or_name: str,
+    output_path_or_dir: str,
+    split: str = "test"
+) -> None:
+    """
+    Saves generation evaluation results to a single JSON file.
+
+    Args:
+        per_query_results  : Output of evaluate_generation_dataset(), one dict per query.
+        averaged           : Macro-averaged metrics across queries.
+        metadata           : Pipeline metadata dict containing generation and
+                             reranking configuration.
+        model_path_or_name : GenLM identifier, used in filename.
+        output_path_or_dir : Either a full file path or a directory. If a directory,
+                             a timestamped filename is generated automatically.
+        split              : Dataset split being evaluated ('train', 'val', 'test').
+    """
+    import os
+    from datetime import datetime
+
+    metadata['split'] = split
+
+    payload = {
+        "metadata": metadata,
+        "averaged_metrics": averaged,
+        "per_query_results": per_query_results
+    }
+
+    if os.path.isdir(output_path_or_dir):
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        model_slug = model_path_or_name.replace("/", "_")
+        mode = metadata.get("generationMetadata", {}).get("modeContextAssembling", "unknown")
+        filename = f"{model_slug}_{mode}_{split}_{timestamp}.json"
+        output_path = os.path.join(output_path_or_dir, filename)
+    else:
+        output_path = output_path_or_dir
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+
+    print(f"Generation results saved to {output_path}")
