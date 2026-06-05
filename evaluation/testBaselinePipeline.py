@@ -4,15 +4,14 @@ sys.path.append('../')
 
 from data.load_dataset import load_bioASQ, build_candidate_pool_bioASQ
 from models.load_reranker import load_reranker, load_genLM
-from saveResult import save_results
+from saveResult import save_results_reranker, save_result_generation
 from inference.rerank import rerank, evaluate_reranker_dataset
-from inference.generate import generate_dataset
+from inference.generate import generate_dataset, evaluate_generation_dataset
 from inference.assemble_context import assemble_context_dataset
 import json
 from tqdm import tqdm
 import os
 from pprint import pp
-
 
 
 # those might need to come from a .sh script later. 
@@ -81,10 +80,11 @@ else:
         json.dump(val_pool, val_p_json, ensure_ascii=False, indent=4)
 
 
+queries = [test_pool[i]['query'] for i in range(2)]
+candidates_list = [test_pool[i]['candidates'] for i in range(2)]
 
-
-queries = [test_pool[i]['query'] for i in range(10)]
-candidates_list = [test_pool[i]['candidates'] for i in range(10)]
+# queries = [test_pool[i]['query'] for i in range(10)]
+# candidates_list = [test_pool[i]['candidates'] for i in range(10)]
 
 # queries = [test_pool[i]['query'] for i in range(len(test_pool))]
 # candidates_list = [test_pool[i]['candidates'] for i in range(len(test_pool))]
@@ -98,7 +98,7 @@ for q, cand in tqdm(zip(queries, candidates_list), total=len(queries), desc="Rer
 
 # potentially, this might get looped over threshold values. 
 metrics = evaluate_reranker_dataset(scoreTest, metadataTest, threshold=threshold, k_values=k_values)
-# save_results(scored=scoreTest, metadata=metadataTest, metrics=metrics, model_path_or_name=modelName, threshold=threshold, k_values=k_values, output_dir=output_dir)
+save_results_reranker(scored=scoreTest, metadata=metadataTest, metrics=metrics, model_path_or_name=modelName, threshold=threshold, k_values=k_values, output_dir=output_dir)
 
 
 #----------------------------#
@@ -107,17 +107,23 @@ metrics = evaluate_reranker_dataset(scoreTest, metadataTest, threshold=threshold
 modelGenName = "stanford-crfm/BioMedLM"
 modeContextAssembling = "reranked" # can be reranked, to use the top-k sentence from the abstract,
 # or full, which uses all of the abstracts as context. 
-top_k = 5
-maxContextToken = 768
-# BioMedLM can take up to 1024 token, which include generation. 
-# By setting here a maxContextToken, we leave some headroom for the generation to not get blown out. 
+top_k = 5 # control how many sentences go into the context. 
+
+max_new_token = 100 # token reserved, out of 1024, for generation
+maxContextToken = 1024-max_new_token # the leftover token can be used for context. 
+
 prompt_template = "Context: {context}\nQuestion: {query}\nAnswer:" # TODO or to test at least
+
 repetition_penalty=1.2 # this penalize the LM for getting stuck in a loop of the exact same sentence. 
 # This is likely to happen in greedy decoding setup, since there's no variability. 
 
+bertscore_model_roberta = "roberta-large"
+bertscore_model_biomedical = "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract"
+output_dir_gen = "result/TestBaseLinePipeline"
+
 modelGen, tokenGen = load_genLM(model_path_or_name=modelGenName)
 
-contexts = assemble_context_dataset(pool=test_pool[:10], 
+contexts = assemble_context_dataset(pool=test_pool[:2], 
                                     scored_list=scoreTest,
                                     abstracts=abstracts,
                                     tokenizer=tokenGen,
@@ -130,8 +136,38 @@ generated_sets = generate_dataset(
                                     contexts=contexts,
                                     model=modelGen,
                                     tokenizer=tokenGen,
-                                    max_new_tokens=1024-maxContextToken,
+                                    max_new_tokens=max_new_token,
                                     repetition_penalty=repetition_penalty
                                 )
+# compared to generated_sets, per_query_results has strictly more info since it contain the id, query, answer, generated, and the metric
+per_query_results, averaged = evaluate_generation_dataset(
+    generation_results=generated_sets,
+    bertscore_model_roberta=bertscore_model_roberta,
+    bertscore_model_biomedical=bertscore_model_biomedical
+)
 
-pp(generated_sets[0])
+metadataPipeline = {
+    "generationMetadata" : {
+        "modelGenName" : modelGenName,
+        "modeContextAssembling" : modeContextAssembling,
+        "topk" : top_k,
+        "max_new_token" : max_new_token,
+        "maxContextToken" : maxContextToken,
+        "prompt_template" : prompt_template,
+        "repetition_penalty" : repetition_penalty,
+        "bertscore_model_roberta" : bertscore_model_roberta,
+        "bertscore_model_biomedical" : bertscore_model_biomedical
+    },
+    "rerankingMetadata" : {
+        "modelReranker" : modelName,
+        "threshold" : threshold,
+        "k_values" : k_values,
+
+    }
+}
+save_result_generation(
+    per_query_results=per_query_results,
+    averaged=averaged,
+    metadata=metadataPipeline,
+    model_path_or_name=modelGenName,
+    output_path_or_dir=output_dir_gen)

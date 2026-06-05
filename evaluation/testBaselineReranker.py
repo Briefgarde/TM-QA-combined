@@ -4,7 +4,7 @@ sys.path.append('../')
 
 from data.load_dataset import load_bioASQ, build_candidate_pool_bioASQ
 from models.load_reranker import load_reranker
-from saveResult import save_results
+from saveResult import save_results_reranker
 from inference.rerank import rerank, evaluate_reranker_dataset
 import json
 from tqdm import tqdm
@@ -86,5 +86,5 @@ for q, cand in tqdm(zip(queries, candidates_list), total=len(queries), desc="Rer
 
 # potentially, this might get looped over threshold values. 
 metrics = evaluate_reranker_dataset(scoreTest, metadataTest, threshold=threshold, k_values=k_values)
-save_results(scored=scoreTest, metadata=metadataTest, metrics=metrics, model_path_or_name=modelName, threshold=threshold, k_values=k_values, output_dir=output_dir)
+save_results_reranker(scored=scoreTest, metadata=metadataTest, metrics=metrics, model_path_or_name=modelName, threshold=threshold, k_values=k_values, output_dir=output_dir)
 
