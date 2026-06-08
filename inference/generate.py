@@ -223,6 +223,7 @@ def generate_dataset_batch(
             results[batch_start + i] = {
                 'id'              : entry['id'],
                 'query'           : entry['query'],
+                'prompt'          : entry['prompt'],
                 'answer'          : entry['answer'],
                 'generated'       : generated_text,
                 'prompt_tokens'   : prompt_len,
@@ -309,6 +310,7 @@ def evaluate_generation(
     results = {
         'id': generation_entry['id'],
         'query': generation_entry['query'],
+        'prompt' : generation_entry['prompt'],
         'generated' : generated,
         'answer' : gold,
         'EM': compute_em(generated, gold),
@@ -430,7 +432,7 @@ def evaluate_generation_dataset(
 
     numeric_keys = [
         k for k in per_query_results[0].keys()
-        if k not in ('id', 'query', 'generated', 'answer')
+        if k not in ('id', 'query', 'generated', 'answer', 'prompt')
     ]
     averaged = {
         metric: float(np.mean([r[metric] for r in per_query_results]))
