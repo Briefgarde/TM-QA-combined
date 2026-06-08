@@ -151,6 +151,89 @@ def generate_dataset(
     return results
 
 
+def generate_dataset_batch(
+    contexts: list[dict],
+    model,
+    tokenizer,
+    max_new_tokens: int = 256,
+    repetition_penalty: float = 1.2,
+    use_newline_stop: bool = True,
+    batch_size: int = 8,
+) -> list[dict]:
+    original_padding_side = tokenizer.padding_side
+    tokenizer.padding_side = 'left'
+
+    stopping_criteria = None
+    if use_newline_stop:
+        newline_ids  = tokenizer.encode("\n",   add_special_tokens=False)
+        newline_ids += tokenizer.encode("\n\n", add_special_tokens=False)
+        stopping_criteria = StoppingCriteriaList([NewlineStoppingCriteria(newline_ids)])
+
+    results = [None] * len(contexts)
+
+    for batch_start in tqdm(range(0, len(contexts), batch_size), desc="Generating answers"):
+        batch = contexts[batch_start : batch_start + batch_size]
+
+        prompts = [entry['prompt'] for entry in batch]
+
+        start = time.perf_counter()
+
+        inputs = tokenizer(
+            prompts,
+            return_tensors='pt',
+            padding=True,
+            truncation=True,
+            max_length=tokenizer.model_max_length,
+        ).to(model.device)
+
+        generate_kwargs = dict(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+            repetition_penalty=repetition_penalty,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+        if use_newline_stop:
+            generate_kwargs['stopping_criteria'] = stopping_criteria
+
+        with torch.no_grad():
+            output_ids = model.generate(**generate_kwargs)
+
+        elapsed_ms = (time.perf_counter() - start) * 1000
+
+        # prompt_lengths derived from attention_mask to account for left-padding
+        prompt_lengths = inputs['attention_mask'].sum(dim=1).tolist()
+
+        for i, entry in enumerate(batch):
+            prompt_len    = int(prompt_lengths[i])
+            # output_ids shape: (batch_size, padded_input_len + max_new_tokens)
+            # the full sequence begins with left-padding, then the prompt, then generated tokens
+            # the prompt ends at position: output_ids.shape[1] - max_new_tokens (roughly),
+            # but more precisely we recover it from the input tensor length + generation offset
+            padded_input_len   = inputs['input_ids'].shape[1]
+            generated_ids      = output_ids[i][padded_input_len:]
+            # strip trailing pad/eos tokens that may appear after early newline stop
+            non_pad_mask       = generated_ids != tokenizer.eos_token_id
+            if non_pad_mask.any():
+                last_real      = non_pad_mask.nonzero(as_tuple=False)[-1].item()
+                generated_ids  = generated_ids[:last_real + 1]
+
+            generated_text = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+
+            results[batch_start + i] = {
+                'id'              : entry['id'],
+                'query'           : entry['query'],
+                'answer'          : entry['answer'],
+                'generated'       : generated_text,
+                'prompt_tokens'   : prompt_len,
+                'generated_tokens': len(generated_ids),
+                'generation_time_ms': elapsed_ms / len(batch),
+            }
+
+    tokenizer.padding_side = original_padding_side
+    return results
+
+
 
 def normalize_text(text: str) -> list[str]:
     """
