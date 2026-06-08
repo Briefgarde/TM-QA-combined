@@ -6,12 +6,18 @@ from data.load_dataset import load_bioASQ, build_candidate_pool_bioASQ
 from models.load_reranker import load_reranker, load_genLM
 from saveResult import save_results_reranker, save_result_generation
 from inference.rerank import rerank, evaluate_reranker_dataset
-from inference.generate import generate_dataset, evaluate_generation_dataset
+from inference.generate import generate_dataset, generate_dataset_batch, evaluate_generation_dataset
 from inference.assemble_context import assemble_context_dataset
 import json
 from tqdm import tqdm
 import os
 from pprint import pp
+import torch
+
+#---------
+DEBUG_N = int(os.environ["DEBUG_N"]) if os.environ.get("DEBUG_N") else None
+print(DEBUG_N)
+
 
 
 # those might need to come from a .sh script later. 
@@ -23,7 +29,7 @@ bioasq_path='../data/BioASQ-training14b/training14b.json'
 train_ratio = 0.8
 test_ratio = 0.1
 val_ratio = 0.1
-batch_size = 16 # how many sentences the reranker treast at once for a given query. 
+batch_sizeReranker = 16 # how many sentences the reranker treast at once for a given query. 
 # this may affect speed during inference, so keep an eye on it. 
 output_dir="result/TestBaseLineReranker"
 
@@ -80,14 +86,17 @@ else:
         json.dump(val_pool, val_p_json, ensure_ascii=False, indent=4)
 
 
-queries = [test_pool[i]['query'] for i in range(2)]
-candidates_list = [test_pool[i]['candidates'] for i in range(2)]
+pool_slice = test_pool if DEBUG_N is None else test_pool[:DEBUG_N]
+
+# # THis is only for testing purposes, to quickly get some result. 
+# queries = [test_pool[i]['query'] for i in range(2)]
+# candidates_list = [test_pool[i]['candidates'] for i in range(2)]
 
 # queries = [test_pool[i]['query'] for i in range(10)]
 # candidates_list = [test_pool[i]['candidates'] for i in range(10)]
 
-# queries = [test_pool[i]['query'] for i in range(len(test_pool))]
-# candidates_list = [test_pool[i]['candidates'] for i in range(len(test_pool))]
+queries = [pool_slice[i]['query'] for i in range(len(pool_slice))]
+candidates_list = [pool_slice[i]['candidates'] for i in range(len(pool_slice))]
 
 scoreTest = []
 metadataTest = []
@@ -96,10 +105,25 @@ for q, cand in tqdm(zip(queries, candidates_list), total=len(queries), desc="Rer
     scoreTest.append(ranked)
     metadataTest.append(meta)
 
-# potentially, this might get looped over threshold values. 
-metrics = evaluate_reranker_dataset(scoreTest, metadataTest, threshold=threshold, k_values=k_values)
-save_results_reranker(scored=scoreTest, metadata=metadataTest, metrics=metrics, model_path_or_name=modelName, threshold=threshold, k_values=k_values, output_dir=output_dir)
+thresholds_to_test = [0.3, 0.5, 0.7]
+for threshold in thresholds_to_test:
+    metrics = evaluate_reranker_dataset(
+        scoreTest, metadataTest,
+        threshold=threshold,
+        k_values=k_values
+    )
+    save_results_reranker(
+        scored=scoreTest,
+        metadata=metadataTest,
+        metrics=metrics,
+        model_path_or_name=modelName,
+        threshold=threshold,
+        k_values=k_values,
+        output_dir=output_dir
+    )
 
+del model, tokenizer # this is only for the reranker
+torch.cuda.empty_cache()
 
 #----------------------------#
 # Generative part
@@ -108,66 +132,139 @@ modelGenName = "stanford-crfm/BioMedLM"
 modeContextAssembling = "reranked" # can be reranked, to use the top-k sentence from the abstract,
 # or full, which uses all of the abstracts as context. 
 top_k = 5 # control how many sentences go into the context. 
-
 max_new_token = 100 # token reserved, out of 1024, for generation
 maxContextToken = 1024-max_new_token # the leftover token can be used for context. 
-
 prompt_template = "Context: {context}\nQuestion: {query}\nAnswer:" # TODO or to test at least
-
 repetition_penalty=1.2 # this penalize the LM for getting stuck in a loop of the exact same sentence. 
 # This is likely to happen in greedy decoding setup, since there's no variability. 
-
+use_newline_stop = True
+batch_size_gen = 4 
 bertscore_model_roberta = "roberta-large"
 bertscore_model_biomedical = "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract"
 output_dir_gen = "result/TestBaseLinePipeline"
 
 modelGen, tokenGen = load_genLM(model_path_or_name=modelGenName)
 
-contexts = assemble_context_dataset(pool=test_pool[:2], 
-                                    scored_list=scoreTest,
-                                    abstracts=abstracts,
-                                    tokenizer=tokenGen,
-                                    mode=modeContextAssembling,
-                                    top_k=top_k,
-                                    max_context_tokens=maxContextToken,
-                                    prompt_template=prompt_template)
 
-generated_sets = generate_dataset(
-                                    contexts=contexts,
-                                    model=modelGen,
-                                    tokenizer=tokenGen,
-                                    max_new_tokens=max_new_token,
-                                    repetition_penalty=repetition_penalty
-                                )
-# compared to generated_sets, per_query_results has strictly more info since it contain the id, query, answer, generated, and the metric
+# ------------testing reranked mode---------------
+top_k_values_to_test = [1,2,3,5]
+for top_k in top_k_values_to_test:
+        contexts = assemble_context_dataset(
+            pool=pool_slice,
+            scored_list=scoreTest,
+            abstracts=abstracts,
+            tokenizer=tokenGen,
+            mode="reranked",
+            top_k=top_k,
+            max_context_tokens=maxContextToken,
+            prompt_template=prompt_template
+        )
+
+        generated_sets = generate_dataset_batch(
+            contexts=contexts,
+            model=modelGen,
+            tokenizer=tokenGen,
+            max_new_tokens=max_new_token,
+            repetition_penalty=repetition_penalty,
+            use_newline_stop=use_newline_stop,
+            batch_size=batch_size_gen
+        )
+        pp(generated_sets[0])
+
+        per_query_results, averaged = evaluate_generation_dataset(
+            generation_results=generated_sets,
+            bertscore_model_roberta=bertscore_model_roberta,
+            bertscore_model_biomedical=bertscore_model_biomedical
+        )
+        pp(per_query_results[0])
+
+        metadataPipeline = {
+            "dataset": "BioASQ-training14b",
+            "split": "test",
+            "generationMetadata": {
+                "modelGenName": modelGenName,
+                "modeContextAssembling": "reranked",
+                "topk": top_k,
+                "max_new_token": max_new_token,
+                "maxContextToken": maxContextToken,
+                "prompt_template": prompt_template,
+                "repetition_penalty": repetition_penalty,
+                "bertscore_model_roberta": bertscore_model_roberta,
+                "bertscore_model_biomedical": bertscore_model_biomedical,
+                "use_newline_stop": use_newline_stop,
+                "batch_size": batch_size_gen
+            },
+            "rerankingMetadata": {
+                "modelReranker": modelName,
+                "threshold": threshold,
+                "k_values": k_values,
+            }
+        }
+
+        save_result_generation(
+            per_query_results=per_query_results,
+            averaged=averaged,
+            metadata=metadataPipeline,
+            model_path_or_name=modelGenName,
+            output_dir=output_dir_gen
+        )
+
+# ------------testing full mode---------------
+top_k = 0
+contexts = assemble_context_dataset(
+            pool=pool_slice,
+            scored_list=scoreTest,
+            abstracts=abstracts,
+            tokenizer=tokenGen,
+            mode="full",
+            top_k=top_k,
+            max_context_tokens=maxContextToken,
+            prompt_template=prompt_template
+        )
+
+generated_sets = generate_dataset_batch(
+            contexts=contexts,
+            model=modelGen,
+            tokenizer=tokenGen,
+            max_new_tokens=max_new_token,
+            repetition_penalty=repetition_penalty,
+            use_newline_stop=use_newline_stop,
+            batch_size=batch_size_gen
+        )
+
 per_query_results, averaged = evaluate_generation_dataset(
-    generation_results=generated_sets,
-    bertscore_model_roberta=bertscore_model_roberta,
-    bertscore_model_biomedical=bertscore_model_biomedical
-)
+            generation_results=generated_sets,
+            bertscore_model_roberta=bertscore_model_roberta,
+            bertscore_model_biomedical=bertscore_model_biomedical
+        )
 
 metadataPipeline = {
-    "generationMetadata" : {
-        "modelGenName" : modelGenName,
-        "modeContextAssembling" : modeContextAssembling,
-        "topk" : top_k,
-        "max_new_token" : max_new_token,
-        "maxContextToken" : maxContextToken,
-        "prompt_template" : prompt_template,
-        "repetition_penalty" : repetition_penalty,
-        "bertscore_model_roberta" : bertscore_model_roberta,
-        "bertscore_model_biomedical" : bertscore_model_biomedical
-    },
-    "rerankingMetadata" : {
-        "modelReranker" : modelName,
-        "threshold" : threshold,
-        "k_values" : k_values,
+            "dataset": "BioASQ-training14b",
+            "split": "test",
+            "generationMetadata": {
+                "modelGenName": modelGenName,
+                "modeContextAssembling": "full",
+                "topk": top_k,
+                "max_new_token": max_new_token,
+                "maxContextToken": maxContextToken,
+                "prompt_template": prompt_template,
+                "repetition_penalty": repetition_penalty,
+                "bertscore_model_roberta": bertscore_model_roberta,
+                "bertscore_model_biomedical": bertscore_model_biomedical,
+                "use_newline_stop": use_newline_stop,
+                "batch_size": batch_size_gen
+            },
+            "rerankingMetadata": {
+                "modelReranker": modelName,
+                "threshold": threshold,
+                "k_values": k_values,
+            }
+        }
 
-    }
-}
 save_result_generation(
-    per_query_results=per_query_results,
-    averaged=averaged,
-    metadata=metadataPipeline,
-    model_path_or_name=modelGenName,
-    output_path_or_dir=output_dir_gen)
+            per_query_results=per_query_results,
+            averaged=averaged,
+            metadata=metadataPipeline,
+            model_path_or_name=modelGenName,
+            output_dir=output_dir_gen
+        )
