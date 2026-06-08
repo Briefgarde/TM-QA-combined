@@ -49,7 +49,7 @@ def save_results_reranker(
         "ranked_output": fused
     }
 
-    output_path = Path(output_dir) / f"{model_slug}_{timestamp}.json"
+    output_path = Path(output_dir) / f"{model_slug}_{timestamp}_thresh{threshold}.json"
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
