@@ -4,3 +4,4 @@ infoForClaude.md
 !/data/BioASQ-training14b/**
 .env
 *.json
+*.pyc
