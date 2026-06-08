@@ -1,10 +1,8 @@
 import json
 from datetime import datetime
 from pathlib import Path
+import os
 
-
-# alt save_results_reranker
-# with fusing int a single file.
 def save_results_reranker(
     scored: list[list[dict]],
     metadata: list[dict],
@@ -66,8 +64,7 @@ def save_result_generation(
     averaged: dict,
     metadata: dict,
     model_path_or_name: str,
-    output_path_or_dir: str,
-    split: str = "test"
+    output_dir: str
 ) -> None:
     """
     Saves generation evaluation results to a single JSON file.
@@ -78,14 +75,9 @@ def save_result_generation(
         metadata           : Pipeline metadata dict containing generation and
                              reranking configuration.
         model_path_or_name : GenLM identifier, used in filename.
-        output_path_or_dir : Either a full file path or a directory. If a directory,
-                             a timestamped filename is generated automatically.
-        split              : Dataset split being evaluated ('train', 'val', 'test').
+        output_dir         : Directory to write output file. Created if it does not exist.
     """
-    import os
-    from datetime import datetime
-
-    metadata['split'] = split
+    
 
     payload = {
         "metadata": metadata,
@@ -93,16 +85,15 @@ def save_result_generation(
         "per_query_results": per_query_results
     }
 
-    if os.path.isdir(output_path_or_dir):
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        model_slug = model_path_or_name.replace("/", "_")
-        mode = metadata.get("generationMetadata", {}).get("modeContextAssembling", "unknown")
-        filename = f"{model_slug}_{mode}_{split}_{timestamp}.json"
-        output_path = os.path.join(output_path_or_dir, filename)
-    else:
-        output_path = output_path_or_dir
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    model_slug = model_path_or_name.replace("/", "_")
+    mode = metadata.get("generationMetadata", {}).get("modeContextAssembling", "unknown")
+    k = metadata.get("generationMetadata", {}).get("topk", {})
+    split = metadata.get("split", {})
+    filename = f"{model_slug}_top{k}_{mode}_{split}_{timestamp}.json"
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    output_path = Path(output_dir) / filename
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
