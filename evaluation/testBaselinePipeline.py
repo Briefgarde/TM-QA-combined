@@ -16,7 +16,9 @@ import torch
 
 #---------
 DEBUG_N = int(os.environ["DEBUG_N"]) if os.environ.get("DEBUG_N") else None
+USE_PRECOMPUTE_FILE = bool(os.environ["USE_PRECOMPUTE_FILE"]) if os.environ.get("USE_PRECOMPUTE_FILE") else True
 print(DEBUG_N)
+print(USE_PRECOMPUTE_FILE)
 
 
 
@@ -52,8 +54,7 @@ val_pool_path = "val_pool.json"
 
 # Check if the test pool file already exists
 # this quickly takes a lot of time to run, so I dump it for ease of use since I tend to work pretty iteratively. 
-# if os.path.exists(test_pool_path):
-if os.path.exists(test_pool_path):
+if os.path.exists(test_pool_path) and USE_PRECOMPUTE_FILE:
     print("Pre-computed pools found. Loading from JSON files...")
     
     with open(train_pool_path, "r", encoding="utf-8") as train_p_json:
@@ -160,6 +161,7 @@ for top_k in top_k_values_to_test:
             prompt_template=prompt_template
         )
 
+
         generated_sets = generate_dataset_batch(
             contexts=contexts,
             model=modelGen,
@@ -169,14 +171,12 @@ for top_k in top_k_values_to_test:
             use_newline_stop=use_newline_stop,
             batch_size=batch_size_gen
         )
-        pp(generated_sets[0])
 
         per_query_results, averaged = evaluate_generation_dataset(
             generation_results=generated_sets,
             bertscore_model_roberta=bertscore_model_roberta,
             bertscore_model_biomedical=bertscore_model_biomedical
         )
-        pp(per_query_results[0])
 
         metadataPipeline = {
             "dataset": "BioASQ-training14b",
