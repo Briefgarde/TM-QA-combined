@@ -121,7 +121,7 @@ def lcs_length(words_a: list[str], words_b: list[str]) -> int:
     return best
 
 
-def compute_label(sentence_words: list[str], snippets: list[dict]) -> float:
+def compute_label(sentence_words: list[str], snippets: list[dict], min_lcs_words=5) -> float:
     """
     Returns a float relevance score in [0, 1] representing the best overlap
     between the sentence and any snippet in the query.
@@ -133,6 +133,7 @@ def compute_label(sentence_words: list[str], snippets: list[dict]) -> float:
         sentence_words : Normalized word list of the candidate sentence.
         snippets       : List of snippet dicts with a 'text' key (pre-filtered
                          to available abstracts upstream).
+        min_lcs_words  : The minimum quantity of overlap word to have to be considered; filter out short, irrelevant sentences. 
 
     Returns:
         Float in [0, 1]. Returns 0.0 if no snippets are available.
@@ -143,6 +144,8 @@ def compute_label(sentence_words: list[str], snippets: list[dict]) -> float:
         if not snippet_words:
             continue
         lcs = lcs_length(sentence_words, snippet_words)
+        if lcs < min_lcs_words:
+            continue
         score = max(lcs / len(snippet_words), lcs / len(sentence_words))
         best = max(best, score)
     return best
@@ -151,13 +154,15 @@ def compute_label(sentence_words: list[str], snippets: list[dict]) -> float:
 def build_candidate_pool_bioASQ(
     entry: dict,
     abstracts: dict,
+    min_lcs_words = 5
 ) -> dict:
     """
     Builds the candidate pool for a single query entry.
 
     Args:
-        entry     : A single dataset entry with keys 'id', 'query', 'pubmed_ids', 'snippets'.
-        abstracts : Dict mapping PubMed ID (str) to list of sentence strings.
+        entry          : A single dataset entry with keys 'id', 'query', 'pubmed_ids', 'snippets'.
+        abstracts      : Dict mapping PubMed ID (str) to list of sentence strings.
+        min_lcs_words  : The minimum quantity of overlap word to have to be considered; filter out short, irrelevant sentences. 
 
     Returns:
         A dict with:
@@ -179,7 +184,7 @@ def build_candidate_pool_bioASQ(
             sentence_words = normalize(sentence)
             if not sentence_words:
                 continue
-            label = compute_label(sentence_words, valid_snippets)
+            label = compute_label(sentence_words, valid_snippets, min_lcs_words)
             candidates.append({
                 'sentence': sentence,
                 'relevance_score': label
