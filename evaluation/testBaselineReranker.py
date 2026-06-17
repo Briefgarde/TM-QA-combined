@@ -3,11 +3,10 @@ sys.path.append('../')
 # so that it sits at the root of the program. 
 
 from data.load_dataset import load_bioASQ, build_candidate_pool_bioASQ
-from models.load_reranker import load_reranker, load_genLM
-from saveResult import save_results_reranker, save_result_generation
+from models.load_reranker import load_reranker
+from saveResult import save_results_reranker
 from inference.rerank import rerank, evaluate_reranker_dataset
-from inference.generate import generate_dataset, generate_dataset_batch, evaluate_generation_dataset
-from inference.assemble_context import assemble_context_dataset
+
 import json
 from tqdm import tqdm
 import os
@@ -21,7 +20,9 @@ print(DEBUG_N)
 
 
 # those might need to come from a .sh script later. 
-modelName = "ncbi/MedCPT-Cross-Encoder" # while I haven't tested it yet, we should be able to test other reranker really easily. 
+# modelName = "ncbi/MedCPT-Cross-Encoder" # while I haven't tested it yet, we should be able to test other reranker really easily. 
+modelName = "../models/finetuning/finetuningResult/run_lr1e-05_epoch3_warm0.1_marg1/best_model/"
+
 threshold = 0.5 # % of overlap a sentence must have with a snippet to be considered a good sentence. 
 k_values=[5,10,15,20]
 abstracts_path = "../data/BioASQ-training14b/abstract_list_tokenized.json"
