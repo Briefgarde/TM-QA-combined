@@ -1,12 +1,15 @@
 import sys
 sys.path.append('../../')
-
+import os
+import json
 import random
+from tqdm import tqdm
 
 import torch
-from tqdm import tqdm
+from torch.optim import AdamW
 import torch.nn.functional as F
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
+from transformers import get_linear_schedule_with_warmup
 
 from inference.rerank import rerank, evaluate_reranker_dataset
 
@@ -313,7 +316,8 @@ def finetune_reranker(
     k_values: list[int] = [5, 10, 15, 20],
     val_batch_size: int = 16,
     early_stopping_patience: int = 2,
-    device: str = None
+    device: str = None,
+    metadata:dict = None
 ) -> dict:
     """
     Finetunes the reranker with margin ranking loss, validating after each
@@ -337,9 +341,12 @@ def finetune_reranker(
         early_stopping_patience: Number of epochs without NDCG@10 improvement
                                  before stopping early.
         device                 : Device to run on. If None, inferred from model.
+        metadata               : Optional additional metadata to include in the
+                                 returned result if provided.
 
     Returns:
-        Dict with 'history' (list of per-epoch metrics) and 'best_epoch'.
+        Dict with 'history' (list of per-epoch metrics), 'best_epoch',
+        'best_ndcg', and optionally 'metadata'.
     """
     if device is None:
         device = next(model.parameters()).device
@@ -424,8 +431,13 @@ def finetune_reranker(
     with open(history_path, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2)
 
-    return {
+    ret = {
         "history": history,
         "best_epoch": best_epoch,
         "best_ndcg": best_ndcg
     }
+
+    if metadata:
+        ret.update({"metadata" : metadata})
+    
+    return ret
