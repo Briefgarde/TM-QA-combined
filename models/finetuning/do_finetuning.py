@@ -3,7 +3,6 @@ sys.path.append('../../')
 
 from data.load_dataset import load_bioASQ, build_candidate_pool_bioASQ
 from models.load_reranker import load_reranker
-# from inference.rerank import rerank, evaluate_reranker, evaluate_reranker_dataset
 from pprint import pp
 import os
 import json
@@ -13,7 +12,7 @@ import os
 
 
 
-USE_PRECOMPUTE_FILE = bool(os.environ["USE_PRECOMPUTE_FILE"]) if os.environ.get("USE_PRECOMPUTE_FILE") else True
+USE_PRECOMPUTE_FILE = bool(os.environ["USE_PRECOMPUTE_FILE"]) if os.environ.get("USE_PRECOMPUTE_FILE") else False
 DEBUG_N = int(os.environ["DEBUG_N"]) if os.environ.get("DEBUG_N") else None
 
 debug = f"""
@@ -75,7 +74,7 @@ else:
     with open(val_pool_path, "w", encoding="utf-8") as val_p_json:
         json.dump(val_pool, val_p_json, ensure_ascii=False, indent=4)
 
-DEBUG_N = int(len(train_pool) /20) # test with 5% of training set
+# DEBUG_N = int(len(train_pool) /20) # test with 5% of training set
 
 pool_slice = train_pool if DEBUG_N is None else train_pool[:DEBUG_N]
 
@@ -126,7 +125,7 @@ dataset = RerankerDataset(all_training_pairs)
 # ------------ Main method to fine the reranker
 
 
-epochs = 3
+epochs = 5
 batch_sizeFineTuneReranker = 16
 learning_rate = 1e-5
 warmup_ratio = 0.1
@@ -135,10 +134,10 @@ max_grad_norm=1
 threshold=0.5
 k_values=[5,10,15,20]
 val_batch_size=16
-early_stopping_patience=2
+early_stopping_patience=3
 
 output_dir = f"finetuningResult/run_lr{learning_rate}_epoch{epochs}warm_{warmup_ratio}_margin{margin}_maxPos{max_positives_per_query}_maxRneg{n_random_negatives}_maxHneg{n_hard_negatives}/" 
-modelName.replace(".", "-") # replace . by -, to avoid potential problem with imports and stuff
+output_dir = output_dir.replace(".", "-") # replace . by -, to avoid potential problem with imports and stuff
 # TODO ^, or use something like that
 metadata = {
     "model" : {

@@ -427,10 +427,6 @@ def finetune_reranker(
             print(f"Early stopping at epoch {epoch}")
             break
 
-    history_path = os.path.join(output_dir, "training_history.json")
-    with open(history_path, "w", encoding="utf-8") as f:
-        json.dump(history, f, indent=2)
-
     ret = {
         "history": history,
         "best_epoch": best_epoch,
@@ -438,6 +434,10 @@ def finetune_reranker(
     }
 
     if metadata:
-        ret.update({"metadata" : metadata})
-    
+        ret.update({"metadata": metadata})
+
+    history_path = os.path.join(output_dir, "training_history.json")
+    with open(history_path, "w", encoding="utf-8") as f:
+        json.dump(ret, f, indent=2)
+
     return ret
