@@ -1,0 +1,95 @@
+[
+  {
+    "id": "25429730",
+    "query": "Are group 2 innate lymphoid cells ( ILC2s ) increased in chronic rhinosinusitis with nasal polyps or eosinophilia?",
+    "answer": "As ILC2s are elevated in patients with CRSwNP, they may drive nasal polyp formation in CRS. ILC2s are also linked with high tissue and blood eosinophilia and have a potential role in the activation and survival of eosinophils during the Th2 immune response. The association of innate lymphoid cells in CRS provides insights into its pathogenesis.",
+    "final_decision": "yes",
+    "pubmed_ids": [],
+    "gold_pubid_retrieved": false
+  },
+  {
+    "id": "25433161",
+    "query": "Does vagus nerve contribute to the development of steatohepatitis and obesity in phosphatidylethanolamine N-methyltransferase deficient mice?",
+    "answer": "Neuronal signals via the hepatic vagus nerve contribute to the development of steatohepatitis and protection against obesity in HFD fed Pemt(-/-) mice.",
+    "final_decision": "yes",
+    "pubmed_ids": [],
+    "gold_pubid_retrieved": false
+  },
+  {
+    "id": "25445714",
+    "query": "Does psammaplin A induce Sirtuin 1-dependent autophagic cell death in doxorubicin-resistant MCF-7/adr human breast cancer cells and xenografts?",
+    "answer": "PsA significantly inhibited MCF-7/adr cells proliferation in a concentration-dependent manner, with accumulation of cells in G2/M phase of the cell cycle. PsA significantly decreased SIRT1 enzyme activity and reduced expression of SIRT1 protein in the cultured cells with greater potency than sirtinol or salermide. Acetylation of p53, a putative target of SIRT1, increased significantly following PsA treatment. In addition, PsA markedly increased the expression levels of autophagy-related proteins. In support of this, it was found that PsA significantly increased the expression of damage-regulated autophagy modulator (DRAM), a p53-induced protein.",
+    "final_decision": "yes",
+    "pubmed_ids": [
+      "25445714",
+      "29798663",
+      "34797559",
+      "31663148",
+      "25892525",
+      "34055052",
+      "12488537"
+    ],
+    "gold_pubid_retrieved": true
+  },
+  {
+    "id": "25431941",
+    "query": "Is methylation of the FGFR2 gene associated with high birth weight centile in humans?",
+    "answer": "We identified a novel biologically plausible candidate (FGFR2) for with BWC that merits further study.",
+    "final_decision": "yes",
+    "pubmed_ids": [],
+    "gold_pubid_retrieved": false
+  },
+  {
+    "id": "25432519",
+    "query": "Do tumor-infiltrating immune cell profiles and their change after neoadjuvant chemotherapy predict response and prognosis of breast cancer?",
+    "answer": "Breast cancer immune cell subpopulation profiles, determined by immunohistochemistry-based computerized analysis, identify groups of patients characterized by high response (in the pre-treatment setting) and poor prognosis (in the post-treatment setting). Further understanding of the mechanisms underlying the distribution of immune cells and their changes after chemotherapy may contribute to the development of new immune-targeted therapies for breast cancer.",
+    "final_decision": "yes",
+    "pubmed_ids": [],
+    "gold_pubid_retrieved": false
+  },
+  {
+    "id": "25440440",
+    "query": "Is hidradenitis suppurativa a systemic disease with substantial comorbidity burden : a chart-verified case-control analysis?",
+    "answer": "Control subjects were not validated for absence of HS and comorbidity validation was not performed for either group.",
+    "final_decision": "yes",
+    "pubmed_ids": [
+      "25440440"
+    ],
+    "gold_pubid_retrieved": true
+  },
+  {
+    "id": "25444977",
+    "query": "Does reference range for serum and salivary testosterone in young men of Mediterranean region?",
+    "answer": "In men from the Mediterranean region, values of TT>9.7 nmol/L, CFT>0.22 nmol/L, and/or CBT>4.9 nmol/L make the presence of biochemical hypogonadism unlikely. According to the correlation between serum and ST, the clinical value of ST remains to be established.",
+    "final_decision": "yes",
+    "pubmed_ids": [],
+    "gold_pubid_retrieved": false
+  },
+  {
+    "id": "25429648",
+    "query": "Are secretory phospholipases A2 secreted from ciliated cells and increase mucin and eicosanoid secretion from goblet cells?",
+    "answer": "sPLA2 are secreted from ciliated cells and appear to induce mucin and cysLT secretion from goblet cells, strongly suggesting that airway goblet cells are proinflammatory effector cells.",
+    "final_decision": "yes",
+    "pubmed_ids": [],
+    "gold_pubid_retrieved": false
+  },
+  {
+    "id": "25424148",
+    "query": "Is admission hyperglycemia associated with failed reperfusion following fibrinolytic therapy in patients with STEMI : results of a retrospective study?",
+    "answer": "In patients with STEMI who undergo FT, admission hyperglycemia is an independent predictor of the failure of fibrinolysis.",
+    "final_decision": "yes",
+    "pubmed_ids": [
+      "25424148",
+      "15063600"
+    ],
+    "gold_pubid_retrieved": true
+  },
+  {
+    "id": "25447560",
+    "query": "Do systematic Reviews Published in Emergency Medicine Journals Routinely Search Clinical Trials Registries : A Cross-Sectional Analysis?",
+    "answer": "Systematic reviews published in emergency medicine journals do not routinely include searches of clinical trials registries. By helping authors identify unpublished trial data, the addition of registry searches may improve the validity of systematic reviews.",
+    "final_decision": "no",
+    "pubmed_ids": [],
+    "gold_pubid_retrieved": false
+  }
+]
