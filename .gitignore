@@ -2,6 +2,8 @@ infoForClaude.md
 /data/*
 !/data/BioASQ-training14b/
 !/data/BioASQ-training14b/**
+!/data/PubMedQA/
+!/data/PubMedQA/**
 .env
 *.json
 *.pyc
