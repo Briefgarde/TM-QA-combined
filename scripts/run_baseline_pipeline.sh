@@ -3,7 +3,7 @@
 # For a debug run of N samples:  DEBUG_N=10 sbatch scripts/run_baseline_pipeline.sh
 # The tmqa conda env must already exist.
 
-#SBATCH --job-name=baseline_pipeline
+#SBATCH --job-name=finetuned_pipeline
 #SBATCH --partition=shared-gpu
 #SBATCH --gres=gpu:nvidia_a100-pcie-40gb:1
 #SBATCH --time=12:00:00

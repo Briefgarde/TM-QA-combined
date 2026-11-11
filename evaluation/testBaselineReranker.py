@@ -21,8 +21,7 @@ print(DEBUG_N)
 
 # those might need to come from a .sh script later. 
 # modelName = "ncbi/MedCPT-Cross-Encoder" # while I haven't tested it yet, we should be able to test other reranker really easily. 
-modelName = "../models/finetuning/finetuningResult/run_lr1e-05_epoch3_warm0.1_marg1/best_model/"
-
+modelName = "../models/finetuning/finetuningResult/run_lr1e-05_epoch5warm_0-1_margin1_maxPos10_maxRneg3_maxHneg2/best_model"
 threshold = 0.5 # % of overlap a sentence must have with a snippet to be considered a good sentence. 
 k_values=[5,10,15,20]
 abstracts_path = "../data/BioASQ-training14b/abstract_list_tokenized.json"

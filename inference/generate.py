@@ -107,6 +107,127 @@ def generate(
         'generation_time_ms': elapsed_ms,
     }
 
+def generatewithLogitScoring(
+    context_entry: dict,
+    model,
+    tokenizer,
+    max_new_tokens: int = 256,
+    repetition_penalty: float = 1.2,
+    use_newline_stop: bool = True,
+    stopping_criteria: StoppingCriteriaList = None,
+    score_decision: bool = False,
+    decision_token_ids: dict = None
+) -> dict:
+    """
+    Generates an answer for a single context entry using greedy decoding.
+    Optionally scores yes/no/maybe token likelihoods at the answer position.
+
+    Args:
+        context_entry      : Single output from assemble_context(), carrying
+                             id, query, answer, prompt.
+        model              : Loaded causal LM.
+        tokenizer          : Associated tokenizer.
+        max_new_tokens     : Maximum number of tokens to generate.
+        repetition_penalty : Penalty applied to already-seen tokens to reduce
+                             repetition loops.
+        use_newline_stop   : If True, stops generation at the first newline token.
+        stopping_criteria  : Pre-built StoppingCriteriaList. Built internally if
+                             use_newline_stop is True and this is None.
+        score_decision     : If True, scores yes/no/maybe likelihoods at the
+                             first generated token position.
+        decision_token_ids : Dict mapping label strings to token IDs, e.g.
+                             {"yes": id, "no": id, "maybe": id}.
+                             Required if score_decision is True.
+
+    Returns:
+        Dict with keys:
+            'id'                : Query ID.
+            'query'             : Query string.
+            'answer'            : Gold answer.
+            'generated'         : Generated answer string.
+            'prompt_tokens'     : Number of tokens in the prompt.
+            'generated_tokens'  : Number of tokens generated.
+            'generation_time_ms': Wall-clock time in ms.
+            'final_decision'    : Gold final_decision label if present in
+                                  context_entry, else None.
+            'predicted_decision': Predicted label string if score_decision,
+                                  else None.
+            'decision_scores'   : Normalized likelihood dict if score_decision,
+                                  else None.
+    """
+    if score_decision and decision_token_ids is None:
+        raise ValueError("decision_token_ids must be provided when score_decision is True.")
+
+    prompt = context_entry['prompt']
+
+    if use_newline_stop and stopping_criteria is None:
+        newline_ids = tokenizer.encode("\n", add_special_tokens=False)
+        newline_ids += tokenizer.encode("\n\n", add_special_tokens=False)
+        stopping_criteria = StoppingCriteriaList([
+            NewlineStoppingCriteria(newline_ids)
+        ])
+
+    start = time.perf_counter()
+
+    inputs = tokenizer(
+        prompt,
+        return_tensors='pt',
+        truncation=True,
+        max_length=tokenizer.model_max_length
+    ).to(model.device)
+
+    prompt_length = inputs['input_ids'].shape[1]
+
+    # Score decision likelihoods at the first generated token position
+    predicted_decision = None
+    decision_scores = None
+    if score_decision:
+        with torch.no_grad():
+            logits = model(**inputs).logits
+        first_token_logits = logits[0, -1, :]
+        label_ids = torch.tensor(
+            list(decision_token_ids.values()),
+            dtype=torch.long,
+            device=model.device
+        )
+        label_logits = first_token_logits[label_ids]
+        label_probs = torch.softmax(label_logits, dim=0).tolist()
+        labels = list(decision_token_ids.keys())
+        decision_scores = dict(zip(labels, label_probs))
+        predicted_decision = labels[label_probs.index(max(label_probs))]
+
+    # Full generation
+    generate_kwargs = dict(
+        **inputs,
+        max_new_tokens=max_new_tokens,
+        do_sample=False,
+        repetition_penalty=repetition_penalty,
+        pad_token_id=tokenizer.eos_token_id,
+    )
+    if use_newline_stop:
+        generate_kwargs['stopping_criteria'] = stopping_criteria
+
+    with torch.no_grad():
+        output_ids = model.generate(**generate_kwargs)
+
+    elapsed_ms = (time.perf_counter() - start) * 1000
+
+    generated_ids = output_ids[0][prompt_length:]
+    generated_text = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+
+    return {
+        'id': context_entry['id'],
+        'query': context_entry['query'],
+        'answer': context_entry['answer'],
+        'generated': generated_text,
+        'prompt_tokens': prompt_length,
+        'generated_tokens': len(generated_ids),
+        'generation_time_ms': elapsed_ms,
+        'final_decision': context_entry.get('final_decision', None),
+        'predicted_decision': predicted_decision,
+        'decision_scores': decision_scores,
+    }
+
 
 def generate_dataset(
     contexts: list[dict],
